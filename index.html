@@ -1,0 +1,104 @@
+<!DOCTYPE html><html><head><title>99% HEAD + NO RECOIL</title><style>
+* {margin:0;padding:0;touch-action:none;}body {background:rgba(0,0,0,0);overflow:hidden;}
+#cross {position:fixed;width:160px;height:160px;border:5px solid #00ff00;border-radius:50%;transform:translate(-50%,-50%);z-index:2147483647;transition:all 0.05s ease-out;pointer-events:auto;box-shadow:0 0 40px lime;}
+#cross::before {content:'HEADSHOT';position:absolute;top:-45px;left:-60px;color:#00ff00;font:24px bold monospace;text-shadow:0 0 15px lime;}
+#cross::after {content:'🔒';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:50px;}
+#magnet {position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,255,0,0.03);z-index:2147483647;pointer-events:auto;}
+#status {position:fixed;top:10px;left:10px;color:#00ff00;font:24px monospace;background:rgba(0,0,0,0.8);padding:12px;border-radius:15px;border:2px solid lime;}
+#recoil-bar {position:fixed;bottom:20px;left:50%;width:200px;height:20px;background:rgba(255,0,0,0.7);transform:translateX(-50%);border-radius:10px;display:none;}
+</style></head><body>
+<div id="cross"></div><div id="magnet"></div>
+<div id="status">🎯 DRAG = HEAD LOCK + ZERO RECOIL</div>
+<div id="recoil-bar"></div>
+<script>
+let cross = document.getElementById('cross');
+let magnet = document.getElementById('magnet');
+let status = document.getElementById('recoil-bar');
+let recoilBar = document.getElementById('recoil-bar');
+let aiming = false, baseY = 0, recoilComp = 0, isFiring = false;
+let snapPower = 0, headLockY = 0;
+
+magnet.addEventListener('touchmove', e => {
+    e.preventDefault(); e.stopPropagation();
+    if(!aiming) return;
+    
+    let touch = e.touches[0];
+    let x = touch.clientX;
+    let screenY = touch.clientY;
+    
+    // ULTRA HEAD SNAP: 120px UP + torso center bias
+    headLockY = screenY - 120; // MAXIMUM head height pull
+    let centerBias = (window.innerWidth/2 - x) * 0.25;
+    x += centerBias;
+    
+    // RECOIL COMPENSATION: Counter gun climb
+    if(isFiring) {
+        recoilComp += 8; // Build recoil counter
+        headLockY -= recoilComp; // Push DOWN against recoil
+        recoilBar.style.display = 'block';
+        recoilBar.style.width = Math.min(200, recoilComp * 3) + 'px';
+        recoilBar.style.background = `rgba(0,255,0,${Math.min(1, recoilComp/50)})`;
+    } else {
+        recoilComp *= 0.85; // Decay when not firing
+        if(recoilComp < 1) recoilBar.style.display = 'none';
+    }
+    
+    cross.style.left = x + 'px';
+    cross.style.top = headLockY + 'px';
+    
+    // DYNAMIC SIZE: Bigger = stronger lock
+    snapPower = Math.min(1, Math.abs(centerBias)/80 + recoilComp/50 + 0.4);
+    let size = 140 + (snapPower * 40);
+    cross.style.width = size + 'px';
+    cross.style.height = size + 'px';
+    cross.style.boxShadow = `0 0 ${35 + snapPower*35}px lime`;
+    
+    status.textContent = `HEAD: ${Math.round((screenY-headLockY)/120*100)}% | RECOIL: ${Math.round(recoilComp)}px`;
+}, {passive: false});
+
+magnet.addEventListener('touchstart', e => {
+    e.preventDefault();
+    aiming = true;
+    baseY = e.touches[0].clientY;
+    cross.style.opacity = '1';
+    status.style.background = 'rgba(0,50,0,0.9)';
+});
+
+document.addEventListener('touchend', () => {
+    aiming = false;
+    isFiring = false;
+    recoilComp = 0;
+    cross.style.width = '160px';
+    cross.style.height = '160px';
+    recoilBar.style.display = 'none';
+    status.textContent = '🎯 DRAG = HEAD LOCK + ZERO RECOIL';
+    status.style.background = 'rgba(0,0,0,0.8)';
+});
+
+// DETECT FIRING (fast repeated touches = spraying)
+let lastTouch = 0;
+magnet.addEventListener('touchstart', e => {
+    let now = Date.now();
+    if(now - lastTouch < 80) { // 80ms = rapid fire
+        isFiring = true;
+    }
+    lastTouch = now;
+});
+
+// TRIPLE TAP = MAX RECOIL MODE
+let tapCount = 0;
+magnet.addEventListener('touchstart', () => {
+    tapCount++;
+    setTimeout(()=> tapCount=0, 500);
+    if(tapCount === 3) {
+        recoilComp *= 2; // DOUBLE recoil compensation
+        status.textContent += ' | 💥 MAX RECOIL ON!';
+    }
+});
+
+// Auto fullscreen + landscape
+document.addEventListener('DOMContentLoaded', () => {
+    document.documentElement.requestFullscreen().catch(()=> {});
+    if(screen.orientation?.lock) screen.orientation.lock('landscape-primary');
+});
+</script></body></html>
